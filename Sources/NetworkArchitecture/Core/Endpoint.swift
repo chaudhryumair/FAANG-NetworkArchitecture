@@ -16,6 +16,10 @@ public protocol Endpoint: Sendable {
     
     /// Whether this request should participate in the interceptor chain (default true).
     var requiresAuthentication: Bool { get }
+    
+    /// Optional explicit Idempotency-Key. When provided, IdempotencyInterceptor will use it.
+    /// Useful for payment / ride-request flows where the key must be stable across retries.
+    var idempotencyKey: String? { get }
 }
 
 public extension Endpoint {
@@ -24,4 +28,5 @@ public extension Endpoint {
     var body: (any Encodable & Sendable)? { nil }
     var cachePolicy: URLRequest.CachePolicy? { nil }
     var requiresAuthentication: Bool { true }
+    var idempotencyKey: String? { nil }
 }

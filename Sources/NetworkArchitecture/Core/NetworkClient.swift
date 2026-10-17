@@ -54,6 +54,11 @@ public actor NetworkClient {
         let urlRequest = try buildURLRequest(for: endpoint)
         let context = RequestContext(request: urlRequest)
         
+        // Propagate explicit idempotency key into metadata so interceptors can see it
+        if let key = endpoint.idempotencyKey {
+            context.metadata["idempotencyKey"] = key
+        }
+        
         // 1. Prepare interceptors (in order)
         for interceptor in interceptors {
             try await interceptor.prepare(context)
@@ -135,6 +140,11 @@ public actor NetworkClient {
         // Endpoint-specific headers override
         for (key, value) in endpoint.headers {
             request.setValue(value, forHTTPHeaderField: key)
+        }
+        
+        // Explicit Idempotency-Key from Endpoint (stable across retries)
+        if let key = endpoint.idempotencyKey {
+            request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
         }
         
         if let cachePolicy = endpoint.cachePolicy {

@@ -19,6 +19,7 @@ public enum NetworkError: Error, Sendable, LocalizedError {
     case noConnectivity
     case timeout
     case certificatePinningFailed
+    case circuitOpen(host: String, retryAfter: TimeInterval)
     case unknown(Error)
     
     public var errorDescription: String? {
@@ -60,6 +61,8 @@ public enum NetworkError: Error, Sendable, LocalizedError {
             return "The request timed out."
         case .certificatePinningFailed:
             return "Certificate pinning validation failed."
+        case .circuitOpen(let host, let retryAfter):
+            return "Circuit breaker is open for \(host). Retry after \(Int(retryAfter)) seconds."
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
@@ -80,6 +83,8 @@ public enum NetworkError: Error, Sendable, LocalizedError {
             return true
         case .httpError(let code, _):
             return [408, 429, 500, 502, 503, 504].contains(code)
+        case .circuitOpen:
+            return false // Caller should wait for the cool-down
         default:
             return false
         }

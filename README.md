@@ -15,6 +15,7 @@ Built with modern Swift 6 concurrency, actor isolation, and an interceptor middl
 | Async/Await only | ✅ |
 | Exponential backoff + jitter + `Retry-After` | ✅ |
 | Single-flight Token Refresh | ✅ |
+| Configurable Refresh Retry Policy (`.none` / `.once`) | ✅ |
 | Hybrid Caching (Memory + URLCache) | ✅ |
 | Comprehensive typed errors | ✅ |
 | Configurable environments | ✅ |
@@ -66,7 +67,11 @@ let config = NetworkConfiguration(
     timeout: 30,
     interceptors: [
         LoggingInterceptor(level: .headers),
-        AuthInterceptor(tokenProvider: { await TokenStore.shared.accessToken }),
+        AuthInterceptor(
+            tokenProvider: { await TokenStore.shared.accessToken },
+            refreshHandler: { try await TokenStore.shared.refresh() },
+            refreshRetryPolicy: .once          // optional – default is .none
+        ),
         RetryInterceptor(maxAttempts: 3),
         CacheInterceptor(policy: .returnCacheDataElseLoad)
     ]
@@ -99,6 +104,22 @@ Single source of truth. All mutable state is isolated. Safe under Swift 6.
 
 ### Interceptors
 Composable middleware. Implement `Interceptor` protocol to add your own (rate limiting, feature flags, A/B headers, etc.).
+
+### AuthInterceptor & RefreshRetryPolicy
+
+```swift
+public enum RefreshRetryPolicy: Sendable {
+    case none   // fail fast (default)
+    case once   // retry the refresh exactly once
+}
+```
+
+- **Single-flight guarantee**: Multiple concurrent 401s share one refresh `Task`.
+- When the refresh fails:
+  - `.none` → all waiting requests fail immediately with the same error.
+  - `.once` → the refresh is attempted one more time; if it still fails, all waiters receive the error.
+
+This keeps behaviour predictable and avoids partial success / partial failure scenarios.
 
 ### Error Model
 ```swift
